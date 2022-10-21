@@ -222,7 +222,8 @@ export class TaskBar extends St.Widget {
                 tileable,
                 Gio.icon_new_for_string(
                     `${Me.path}/assets/icons/plus-symbolic.svg`
-                )
+                ),
+                true
             );
         }
         item.connect('left-clicked', (_) => {
@@ -619,14 +620,14 @@ export class IconTaskBarItem extends TaskBarItem {
     icon: St.Icon;
     buildIconIdle: IdleDebounce<[number]>;
 
-    constructor(tileable: Tileable, gicon: Gio.IconPrototype) {
+    constructor(tileable: Tileable, gicon: Gio.IconPrototype, small = false) {
         const container = new St.Bin({
             style_class: 'task-bar-icon-container',
         });
         super(container, false);
         this.container = container;
         this.buildIconIdle = new IdleDebounce((height) => {
-            this.icon.set_icon_size(height);
+            this.icon.set_icon_size(height / (small ? 2 : 1));
         });
 
         this.icon = new St.Icon({
