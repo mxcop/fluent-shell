@@ -236,7 +236,7 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
 #msPanel {
     background: rgba(getBackgroundColor($theme), $panel-opacity);
 
-    box-shadow: $shadow;
+    //box-shadow: $shadow;
 
     .panel-button {
         @include foreground-medium-emphasis($theme);

@@ -9,7 +9,7 @@ import * as Meta from 'meta';
 import { App } from 'shell';
 import {
     MetaWindowActorWithMsProperties,
-    MetaWindowWithMsProperties,
+    MetaWindowWithMsProperties
 } from 'src/manager/msWindowManager';
 import { Rectangular } from 'src/types/mod';
 import { throttle } from 'src/utils';

@@ -172,7 +172,7 @@ export class LayoutSwitcher extends St.BoxLayout {
 
     vfunc_allocate(...args: [Clutter.ActorBox]) {
         const box = args[0];
-        const height = box.get_height() / 3;
+        const height = box.get_height() / 4;
 
         if (this.tilingIcon && this.tilingIcon.get_icon_size() != height) {
             GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {

@@ -225,9 +225,9 @@ export class MsPanel extends St.BoxLayout {
                 }
             }
 
-            this.width = 448;
+            this.width = 800; // 448
             this.translation_x =
-                (448 -
+                (800 -
                     (Me.layout.panelsVisible
                         ? Me.msThemeManager.getPanelSize(
                               Main.layoutManager.primaryIndex
@@ -252,7 +252,7 @@ export class MsPanel extends St.BoxLayout {
 
             this.ease({
                 translation_x:
-                    (448 -
+                    (800 -
                         (Me.layout.panelsVisible
                             ? Me.msThemeManager.getPanelSize(
                                   Main.layoutManager.primaryIndex
