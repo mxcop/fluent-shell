@@ -7,7 +7,7 @@ import { MatPanelButton } from 'src/layout/verticalPanel/panelButton';
 import {
     LayoutState,
     LayoutType,
-    TilingLayoutByKey,
+    TilingLayoutByKey
 } from 'src/manager/layoutManager';
 import { assert, assertNotNull } from 'src/utils/assert';
 import { registerGObjectClass } from 'src/utils/gjs';

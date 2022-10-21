@@ -48,7 +48,7 @@ export class PanelContent extends St.BoxLayout {
 
         this.buttonIcon = new St.Icon({
             style_class: 'mat-panel-button-icon',
-            icon_size: Me.msThemeManager.getPanelSizeNotScaled() / 2,
+            icon_size: Me.msThemeManager.getPanelSizeNotScaled() / 4,
         });
 
         this.searchButton = new MatPanelButton({
@@ -77,7 +77,7 @@ export class PanelContent extends St.BoxLayout {
             'panel-size-changed',
             () => {
                 this.buttonIcon.set_icon_size(
-                    Me.msThemeManager.getPanelSizeNotScaled() / 2
+                    Me.msThemeManager.getPanelSizeNotScaled() / 4
                 );
                 this.searchButton.height = Math.max(
                     48,

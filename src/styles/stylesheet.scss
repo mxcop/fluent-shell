@@ -376,9 +376,9 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
         padding: 0px 12px;
         @include foreground-medium-emphasis($theme);
         max-width: 248px;
-        .app-icon {
-            margin-right: 12px;
-        }
+        //.app-icon {
+            //margin-right: 12px;
+        //}
         .task-bar-item-title {
             margin-right: 12px;
             font-weight: 600;

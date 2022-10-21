@@ -390,12 +390,12 @@ export class TileableItem extends TaskBarItem {
     endIconContainer: St.Bin;
     makePersistentAction: PopupMenu.PopupBaseMenuItem;
     unmakePersistentAction: PopupMenu.PopupBaseMenuItem;
-    closeButton: St.Button;
+    //closeButton: St.Button;
     persistentIcon: St.Icon;
     title: St.Label;
     signalManager: MsManager;
     titleSignalKiller: (() => void) | undefined;
-    closeIcon: St.Icon;
+    //closeIcon: St.Icon;
     icon: St.Widget | undefined;
     lastHeight: number | undefined;
     buildIconIdle: IdleDebounce<[number]>;
@@ -450,7 +450,7 @@ export class TileableItem extends TaskBarItem {
                 if (this.tileable instanceof MsWindow) {
                     this.tileable.persistent = false;
                 }
-                this.endIconContainer.set_child(this.closeButton);
+                //this.endIconContainer.set_child(this.closeButton);
                 this.makePersistentAction.show();
                 this.unmakePersistentAction.hide();
             },
@@ -500,19 +500,19 @@ export class TileableItem extends TaskBarItem {
 
         this.connect('destroy', this._onDestroy.bind(this));
         // CLOSE BUTTON
-        this.closeIcon = new St.Icon({
-            style_class: 'task-small-icon',
-            gicon: Gio.icon_new_for_string(
-                `${Me.path}/assets/icons/close-symbolic.svg`
-            ),
-        });
-        this.closeButton = new St.Button({
-            style_class: 'task-close-button',
-            child: this.closeIcon,
-        });
-        this.closeButton.connect('clicked', () => {
-            this.emit('close-clicked');
-        });
+        // this.closeIcon = new St.Icon({
+        //     style_class: 'task-small-icon',
+        //     gicon: Gio.icon_new_for_string(
+        //         `${Me.path}/assets/icons/close-symbolic.svg`
+        //     ),
+        // });
+        // this.closeButton = new St.Button({
+        //     style_class: 'task-close-button',
+        //     child: this.closeIcon,
+        // });
+        // this.closeButton.connect('clicked', () => {
+        //     this.emit('close-clicked');
+        // });
 
         this.persistentIcon = new St.Icon({
             style_class: 'task-small-icon',
@@ -549,7 +549,7 @@ export class TileableItem extends TaskBarItem {
         } else {
             this.unmakePersistentAction.hide();
             this.makePersistentAction.show();
-            this.endIconContainer.set_child(this.closeButton);
+            //this.endIconContainer.set_child(this.closeButton);
         }
         this.setStyle();
     }
@@ -575,7 +575,7 @@ export class TileableItem extends TaskBarItem {
         this.startIconContainer.set_child(this.icon);
         const smallIconSize = Math.max(Math.round(height / 3), 18);
         this.persistentIcon.set_icon_size(smallIconSize);
-        this.closeIcon.set_icon_size(smallIconSize);
+        //this.closeIcon.set_icon_size(smallIconSize);
         this.queue_relayout();
     }
 

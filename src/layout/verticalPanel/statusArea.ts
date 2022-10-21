@@ -13,7 +13,7 @@ import {
     compareVersions,
     gnomeVersionGreaterOrEqualTo,
     gnomeVersionNumber,
-    parseVersion,
+    parseVersion
 } from 'src/utils/shellVersionMatch';
 import * as St from 'st';
 import { dateMenu, main as Main, panel } from 'ui';
@@ -263,7 +263,7 @@ export class MsStatusArea extends Clutter.Actor {
     iconSize() {
         return Math.max(
             16.0,
-            Math.round(Me.msThemeManager.getPanelSizeNotScaled() / 3)
+            Math.round(Me.msThemeManager.getPanelSizeNotScaled() / 6)
         );
     }
 
