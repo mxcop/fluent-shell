@@ -188,11 +188,13 @@ export class MsApplicationButtonContainer extends St.Widget {
         if (Me.msThemeManager.clockAppLauncher) {
             const clockLabel = new St.Label({
                 style_class: 'headline-6 text-medium-emphasis margin-right-x2',
+                style: 'margin-bottom: 16px',
                 y_align: Clutter.ActorAlign.CENTER,
             });
             this.clockLabel = clockLabel;
             const dateLabel = new St.Label({
                 style_class: 'headline-6 text-medium-emphasis',
+                style: 'margin-bottom: 16px',
                 y_align: Clutter.ActorAlign.CENTER,
             });
             this.dateLabel = dateLabel;
@@ -209,7 +211,7 @@ export class MsApplicationButtonContainer extends St.Widget {
                     clockLabel.text = this._wallClock.clock;
                     const date = new Date();
                     const dateFormat = Shell.util_translate_time_string(
-                        N_('%A %B %-d')
+                        N_('%Y/%m/%d') //N_('%A %B %-d')
                     );
                     // TODO: toLocaleFormat is deprecated
                     dateLabel.text = date.toLocaleFormat(dateFormat);
@@ -552,7 +554,7 @@ export class MsApplicationButtonContainer extends St.Widget {
         const containerPadding = 16 * this.monitorScale;
         const clockHeight =
             (Me.msThemeManager.clockAppLauncher ? 64 : 0) * this.monitorScale;
-        const searchHeight = 48 * this.monitorScale;
+        const searchHeight = 80 * this.monitorScale;
         const searchMargin = 24 * this.monitorScale;
 
         const availableWidth = contentBox.get_width() - containerPadding * 2;
@@ -673,7 +675,7 @@ export class MsApplicationButton extends MatButton {
     buttonSize: number;
     layout: St.BoxLayout;
     icon: any;
-    title: St.Label | undefined;
+    //title: St.Label | undefined;
     constructor({ app, buttonSize }: { app: Shell.App; buttonSize: number }) {
         super({});
         this.app = app;
@@ -687,18 +689,18 @@ export class MsApplicationButton extends MatButton {
 
         if (app) {
             this.icon = this.app.create_icon_texture(72);
-            this.title = new St.Label({
-                text: this.app.get_name(),
-                x_align: Clutter.ActorAlign.CENTER,
-                style_class: 'subtitle-2',
-                style: 'margin-top:12px',
-            });
+            // this.title = new St.Label({
+            //     text: this.app.get_name(),
+            //     x_align: Clutter.ActorAlign.CENTER,
+            //     style_class: 'subtitle-2',
+            //     //style: 'margin-top:12px',
+            // });
             this.layout.add_child(this.icon);
-            this.layout.add_child(this.title);
+            //this.layout.add_child(this.title);
 
-            Me.tooltipManager.add(this.title, { relativeActor: this });
+            //Me.tooltipManager.add(this.title, { relativeActor: this });
         }
-        this.layout.set_style('padding:12px;');
+        this.layout.set_style('padding: 3px 12px;');
         this.set_child(this.layout);
     }
 }

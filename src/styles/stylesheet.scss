@@ -233,6 +233,10 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
     @include background('primary');
 }
 
+.background-solid {
+    background: rgba(getBackgroundColor($theme), 1);
+}
+
 #msPanel {
     background: rgba(getBackgroundColor($theme), $panel-opacity);
 
@@ -313,7 +317,7 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
         $topPanelTheme: 'light';
     }
 
-    box-shadow: $shadow;
+    //box-shadow: $shadow;
 
     .task-active-indicator {
         @if ($topPanelTheme== 'dark') {
@@ -432,8 +436,8 @@ MsApplicationLauncher,
 MsPanel {
     * .search-entry {
         @include foreground-medium-emphasis($theme);
-        @include background($theme);
-        border-radius: 48px;
+        background: rgba(getBackgroundColor($theme), $panel-opacity);
+        border-radius: 8px;
         margin: 0px;
 
         * {
@@ -442,6 +446,12 @@ MsPanel {
     }
     * .search-entry-icon {
         @include foreground-medium-emphasis($theme);
+    }
+}
+
+MsApplicationLauncher {
+    * .search-entry {
+        padding: 0px 16px;
     }
 }
 
@@ -477,7 +487,8 @@ MatDivider {
     );
 }
 .popup-menu {
-    margin-bottom: 0;
+    margin-bottom: 16px;
+    margin-right: 16px;
     -arrow-base: 0px;
     -arrow-rise: 0px;
 }

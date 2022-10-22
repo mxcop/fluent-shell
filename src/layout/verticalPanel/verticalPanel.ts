@@ -53,7 +53,7 @@ export class PanelContent extends St.BoxLayout {
 
         this.searchButton = new MatPanelButton({
             child: this.buttonIcon,
-            primary: true,
+            //primary: true,
             height: Math.max(
                 48,
                 Me.msThemeManager.getPanelSize(Main.layoutManager.primaryIndex)

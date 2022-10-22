@@ -26,6 +26,7 @@ export class ExtendedPanelContent extends St.BoxLayout {
             y_expand: true,
             x_expand: true,
             x_align: Clutter.ActorAlign.FILL,
+            styleClass: 'background-solid',
         });
 
         this.searchEntry = new St.Entry({
@@ -47,7 +48,7 @@ export class ExtendedPanelContent extends St.BoxLayout {
         this.searchEntryBin = new St.Bin({
             child: this.searchEntry,
             x_align: Clutter.ActorAlign.FILL,
-            styleClass: 'background-primary',
+            styleClass: 'background-solid',
             height: Math.max(
                 48,
                 Me.msThemeManager.getPanelSize(Main.layoutManager.primaryIndex)

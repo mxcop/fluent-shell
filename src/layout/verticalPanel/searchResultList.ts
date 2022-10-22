@@ -14,11 +14,11 @@ import { ProviderResultList } from './search/ProviderResultList';
 import { AppSearchProvider } from './search/searchProvider/AppSearchProvider';
 import {
     loadRemoteSearchProviders,
-    RemoteSearchProvider,
+    RemoteSearchProvider
 } from './search/searchProvider/RemoteSearchProvider';
 import {
     ResultMeta,
-    SearchProvider,
+    SearchProvider
 } from './search/searchProvider/searchProvider';
 import { SearchResultEntry } from './search/SearchResultEntry';
 
@@ -68,7 +68,7 @@ export class SearchResultList extends St.BoxLayout {
     navigated = false;
     constructor(searchEntry: St.Entry) {
         super({
-            style_class: 'search-result-list',
+            style_class: 'search-result-list background-solid',
             vertical: true,
         });
         this.searchEntry = searchEntry;
