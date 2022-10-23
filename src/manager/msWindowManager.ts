@@ -4,7 +4,7 @@ import * as Shell from 'shell';
 import {
     buildMetaWindowIdentifier,
     MsWindow,
-    MsWindowMatchingInfo,
+    MsWindowMatchingInfo
 } from 'src/layout/msWorkspace/msWindow';
 import { MsWorkspace } from 'src/layout/msWorkspace/msWorkspace';
 import { MsDndManager } from 'src/manager/msDndManager';
