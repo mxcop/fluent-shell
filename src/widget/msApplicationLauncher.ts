@@ -698,7 +698,10 @@ export class MsApplicationButton extends MatButton {
             this.layout.add_child(this.icon);
             //this.layout.add_child(this.title);
 
-            //Me.tooltipManager.add(this.title, { relativeActor: this });
+            Me.tooltipManager.add(this.layout, {
+                text: this.app.get_name(),
+                relativeActor: this,
+            });
         }
         this.layout.set_style('padding: 3px 12px;');
         this.set_child(this.layout);

@@ -14,7 +14,6 @@ import { IdleDebounce } from 'src/utils/idle_debounce';
 import { getSettings } from 'src/utils/settings';
 import { ShellVersionMatch } from 'src/utils/shellVersionMatch';
 import { MatButton } from 'src/widget/material/button';
-import { MsApplicationLauncher } from 'src/widget/msApplicationLauncher';
 import { ReorderableList } from 'src/widget/reorderableList';
 import * as St from 'st';
 import { layout, main as Main, popupMenu as PopupMenu } from 'ui';
@@ -392,7 +391,7 @@ export class TileableItem extends TaskBarItem {
     makePersistentAction: PopupMenu.PopupBaseMenuItem;
     unmakePersistentAction: PopupMenu.PopupBaseMenuItem;
     persistentIcon: St.Icon;
-    title: St.Label;
+    //title: St.Label;
     signalManager: MsManager;
     titleSignalKiller: (() => void) | undefined;
     icon: St.Widget | undefined;
@@ -477,11 +476,10 @@ export class TileableItem extends TaskBarItem {
         Main.layoutManager.uiGroup.add_actor(this.menu.actor);
         this.menu.actor.hide();
         // TITLE
-        this.title = new St.Label({
-            style_class: 'task-bar-item-title',
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        Me.tooltipManager.add(this.title, { relativeActor: this });
+        // this.title = new St.Label({
+        //     style_class: 'task-bar-item-title',
+        //     y_align: Clutter.ActorAlign.CENTER,
+        // });
 
         this.signalManager = new MsManager();
         this.style = getSettings('theme').get_string('taskbar-item-style');
@@ -491,8 +489,8 @@ export class TileableItem extends TaskBarItem {
             () => {
                 this.style =
                     getSettings('theme').get_string('taskbar-item-style');
-                this.updateTitle();
-                this.setStyle();
+                //this.updateTitle();
+                //this.setStyle();
             }
         );
 
@@ -507,10 +505,19 @@ export class TileableItem extends TaskBarItem {
 
         // LAYOUT CONTAINER
         this.container.add_child(this.startIconContainer);
-        this.container.add_child(this.title);
+        //this.container.add_child(this.title);
         this.container.add_child(this.endIconContainer);
 
         this.setTileable(tileable);
+
+        // Add a tooltip to the taskbar item
+        if (this.app) {
+            Me.tooltipManager.add(this.container, {
+                text: this.app.get_name(),
+                relativeActor: this,
+                side: 1,
+            });
+        }
     }
 
     setTileable(tileable: Tileable) {
@@ -521,11 +528,11 @@ export class TileableItem extends TaskBarItem {
         if (this.icon) {
             this.buildIcon(assertNotNull(this.lastHeight));
         }
-        this.titleSignalKiller = this.signalManager.observe(
-            this.tileable,
-            'title-changed',
-            () => this.updateTitle()
-        );
+        // this.titleSignalKiller = this.signalManager.observe(
+        //     this.tileable,
+        //     'title-changed',
+        //     () => this.updateTitle()
+        // );
         if (this.tileable instanceof MsWindow && this.tileable._persistent) {
             this.makePersistentAction.hide();
             this.unmakePersistentAction.show();
@@ -534,17 +541,17 @@ export class TileableItem extends TaskBarItem {
             this.unmakePersistentAction.hide();
             this.makePersistentAction.show();
         }
-        this.setStyle();
+        //this.setStyle();
     }
 
-    setStyle() {
-        this.updateTitle();
-        if (this.style == 'icon') {
-            this.title.hide();
-        } else {
-            this.title.show();
-        }
-    }
+    // setStyle() {
+    //     this.updateTitle();
+    //     if (this.style == 'icon') {
+    //         this.title.hide();
+    //     } else {
+    //         this.title.show();
+    //     }
+    // }
 
     buildIcon(height: number) {
         if (this.icon) this.icon.destroy();
@@ -563,41 +570,41 @@ export class TileableItem extends TaskBarItem {
 
     setActive(active: boolean) {
         super.setActive(active);
-        this.updateTitle();
+        //this.updateTitle();
     }
 
     // Update the title and crop it if it's too long
-    updateTitle() {
-        assert(this.tileable !== undefined, 'item has no tileable');
-        if (
-            this.tileable instanceof MsApplicationLauncher ||
-            this.app === null
-        ) {
-            this.title.text = '';
-        } else {
-            if (this.style == 'full') {
-                if (this.tileable.title.includes(this.app.get_name())) {
-                    this.title.text = this.tileable.title;
-                } else {
-                    const escapedAppName = GLib.markup_escape_text(
-                        this.app.get_name(),
-                        -1
-                    );
-                    const escapedTitle = GLib.markup_escape_text(
-                        this.tileable.title,
-                        -1
-                    );
-                    (this.title.get_clutter_text() as Clutter.Text).set_markup(
-                        `${escapedTitle}<span alpha="${
-                            this.has_style_class_name('active') ? '40%' : '20%'
-                        }">   -   ${escapedAppName}</span>`
-                    );
-                }
-            } else if (this.style == 'name') {
-                this.title.text = this.app.get_name();
-            }
-        }
-    }
+    // updateTitle() {
+    //     assert(this.tileable !== undefined, 'item has no tileable');
+    //     if (
+    //         this.tileable instanceof MsApplicationLauncher ||
+    //         this.app === null
+    //     ) {
+    //         this.title.text = '';
+    //     } else {
+    //         if (this.style == 'full') {
+    //             if (this.tileable.title.includes(this.app.get_name())) {
+    //                 this.title.text = this.tileable.title;
+    //             } else {
+    //                 const escapedAppName = GLib.markup_escape_text(
+    //                     this.app.get_name(),
+    //                     -1
+    //                 );
+    //                 const escapedTitle = GLib.markup_escape_text(
+    //                     this.tileable.title,
+    //                     -1
+    //                 );
+    //                 (this.title.get_clutter_text() as Clutter.Text).set_markup(
+    //                     `${escapedTitle}<span alpha="${
+    //                         this.has_style_class_name('active') ? '40%' : '20%'
+    //                     }">   -   ${escapedAppName}</span>`
+    //                 );
+    //             }
+    //         } else if (this.style == 'name') {
+    //             this.title.text = this.app.get_name();
+    //         }
+    //     }
+    // }
     vfunc_allocate(box: Clutter.ActorBox, flags?: Clutter.AllocationFlags) {
         const height = box.get_height();
 
