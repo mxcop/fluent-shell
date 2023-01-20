@@ -10,7 +10,6 @@ import { LayoutState, LayoutType } from 'src/manager/layoutManager';
 import { HorizontalPanelPositionEnum } from 'src/manager/msThemeManager';
 import { MsWorkspaceManager } from 'src/manager/msWorkspaceManager';
 import { assert, assertNotNull, logAssert } from 'src/utils/assert';
-import { Allocate, SetAllocation } from 'src/utils/compatibility';
 import { registerGObjectClass, WithSignals } from 'src/utils/gjs';
 import { reparentActor } from 'src/utils/index';
 import { getSettings } from 'src/utils/settings';
@@ -143,7 +142,15 @@ export class MsWorkspace extends WithSignals {
                         width: msWindowData.width,
                         height: msWindowData.height,
                     },
-                    matchingInfo
+                    matchingInfo,
+                    // Set createdAt to yesterday when migrating older state, because we don't want restored old windows to be treated as just having been created
+                    msWindowData.createdAt
+                        ? new Date(msWindowData.createdAt)
+                        : new Date(
+                              new Date().setUTCHours(
+                                  new Date().getUTCHours() - 24
+                              )
+                          )
                 );
             }
         }
@@ -286,9 +293,6 @@ export class MsWorkspace extends WithSignals {
 
         this.tileableList.splice(insertAt, 0, msWindow);
 
-        if (focus) {
-            this.focusTileable(msWindow);
-        }
         this.msWorkspaceActor.updateUI();
 
         // TODO: Emitting the event after a small duration is potentially bad.
@@ -296,6 +300,9 @@ export class MsWorkspace extends WithSignals {
         // until the 'tileableList-changed' event runs because the focus index
         // will be out of bounds.
         await this.emitTileableListChangedOnce();
+        if (focus) {
+            this.focusTileable(msWindow);
+        }
     }
 
     async removeMsWindow(msWindow: MsWindow) {
@@ -611,11 +618,8 @@ export class MsWorkspaceActor extends Clutter.Actor {
         this.visible = !monitorInFullScreen;
     }
 
-    override vfunc_allocate(
-        box: Clutter.ActorBox,
-        flags?: Clutter.AllocationFlags
-    ) {
-        SetAllocation(this, box, flags);
+    override vfunc_allocate(box: Clutter.ActorBox) {
+        this.set_allocation(box);
         const contentBox = new Clutter.ActorBox();
         contentBox.x2 = box.get_width();
         contentBox.y2 = box.get_height();
@@ -632,7 +636,7 @@ export class MsWorkspaceActor extends Clutter.Actor {
                 ? contentBox.y1
                 : contentBox.y2 - panelHeight;
         panelBox.y2 = panelBox.y1 + panelHeight;
-        Allocate(this.panel, panelBox, flags);
+        this.panel.allocate(panelBox);
         const containerBox = contentBox.copy();
         if (this.panel.visible) {
             if (panelPosition === HorizontalPanelPositionEnum.TOP) {
@@ -641,10 +645,10 @@ export class MsWorkspaceActor extends Clutter.Actor {
                 containerBox.y2 = containerBox.y2 - panelHeight;
             }
         }
-        Allocate(this.tileableContainer, containerBox, flags);
+        this.tileableContainer.allocate(containerBox);
         for (const actor of this.get_children()) {
             if (actor !== this.panel && actor !== this.tileableContainer) {
-                Allocate(actor, containerBox, flags);
+                actor.allocate(containerBox);
             }
         }
     }

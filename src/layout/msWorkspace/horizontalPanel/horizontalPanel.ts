@@ -3,8 +3,12 @@ import * as Clutter from 'clutter';
 import * as GnomeDesktop from 'gnomedesktop';
 import { LayoutSwitcher } from 'src/layout/msWorkspace/horizontalPanel/layoutSwitcher';
 import { TaskBar } from 'src/layout/msWorkspace/horizontalPanel/taskBar';
-import { Allocate, SetAllocation } from 'src/utils/compatibility';
+import {
+    HorizontalPanelPositionEnum,
+    msThemeSignalEnum,
+} from 'src/manager/msThemeManager';
 import { registerGObjectClass } from 'src/utils/gjs';
+import { SignalObserver } from 'src/utils/signal';
 import * as St from 'st';
 import { popupMenu as PopupMenu } from 'ui';
 import { MsWorkspace } from '../msWorkspace';
@@ -22,13 +26,18 @@ export class HorizontalPanel extends St.BoxLayout {
     clockBin: St.BoxLayout | null | undefined;
     private _wallClock: any;
     msWorkspace: MsWorkspace;
-
+    signalObserver = new SignalObserver();
     constructor(msWorkspace: MsWorkspace) {
         super({
             name: 'horizontalPanel',
         });
         this._delegate = this;
-
+        this.updateStyle();
+        this.signalObserver.observe(
+            Me.msThemeManager,
+            msThemeSignalEnum.HorizontalPanelPositionChanged,
+            this.updateStyle.bind(this)
+        );
         this.msWorkspace = msWorkspace;
         this.menuManager = new PopupMenu.PopupMenuManager(this);
         this.taskBar = new TaskBar(msWorkspace, this.menuManager);
@@ -36,8 +45,9 @@ export class HorizontalPanel extends St.BoxLayout {
 
         this.add_child(this.taskBar);
         this.add_child(this.layoutSwitcher);
-        const horizontalChangedSignal = Me.msThemeManager.connect(
-            'clock-horizontal-changed',
+        this.signalObserver.observe(
+            Me.msThemeManager,
+            msThemeSignalEnum.ClockHorizontalChanged,
             () => {
                 if (Me.msThemeManager.clockHorizontal) {
                     this.createClock();
@@ -47,7 +57,7 @@ export class HorizontalPanel extends St.BoxLayout {
             }
         );
         this.connect('destroy', () => {
-            Me.msThemeManager.disconnect(horizontalChangedSignal);
+            this.signalObserver.clear();
         });
 
         if (Me.msThemeManager.clockHorizontal) {
@@ -87,6 +97,20 @@ export class HorizontalPanel extends St.BoxLayout {
         });
     }
 
+    updateStyle() {
+        this.remove_style_class_name('position-top');
+        this.remove_style_class_name('position-bottom');
+        switch (Me.msThemeManager.horizontalPanelPosition) {
+            case HorizontalPanelPositionEnum.TOP: {
+                this.add_style_class_name('position-top');
+                break;
+            }
+            case HorizontalPanelPositionEnum.BOTTOM: {
+                this.add_style_class_name('position-bottom');
+            }
+        }
+    }
+
     removeClock() {
         if (!this.clockBin) return;
         this.remove_child(this.clockBin);
@@ -101,8 +125,8 @@ export class HorizontalPanel extends St.BoxLayout {
         return [height, height];
     }
 
-    vfunc_allocate(box: Clutter.ActorBox, flags?: Clutter.AllocationFlags) {
-        SetAllocation(this, box, flags);
+    vfunc_allocate(box: Clutter.ActorBox) {
+        this.set_allocation(box);
         const themeNode = this.get_theme_node();
         const contentBox = themeNode.get_content_box(box);
         const clockWidth = this.clockBin
@@ -116,7 +140,7 @@ export class HorizontalPanel extends St.BoxLayout {
         );
         taskBarBox.y1 = contentBox.y1;
         taskBarBox.y2 = contentBox.y2;
-        Allocate(this.taskBar, taskBarBox, flags);
+        this.taskBar.allocate(taskBarBox);
 
         if (this.clockBin) {
             const clockBox = new Clutter.ActorBox();
@@ -124,7 +148,7 @@ export class HorizontalPanel extends St.BoxLayout {
             clockBox.x2 = contentBox.x2 - this.layoutSwitcher.width;
             clockBox.y1 = contentBox.y1;
             clockBox.y2 = contentBox.y2;
-            Allocate(this.clockBin, clockBox, flags);
+            this.clockBin.allocate(clockBox);
         }
 
         const layoutSwitcherBox = new Clutter.ActorBox();
@@ -132,6 +156,6 @@ export class HorizontalPanel extends St.BoxLayout {
         layoutSwitcherBox.x2 = contentBox.x2;
         layoutSwitcherBox.y1 = contentBox.y1;
         layoutSwitcherBox.y2 = contentBox.y2;
-        Allocate(this.layoutSwitcher, layoutSwitcherBox, flags);
+        this.layoutSwitcher.allocate(layoutSwitcherBox);
     }
 }

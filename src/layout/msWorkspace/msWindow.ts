@@ -6,7 +6,8 @@ import * as GLib from 'glib';
 import { PRIORITY_DEFAULT, SOURCE_CONTINUE, SOURCE_REMOVE } from 'glib';
 import * as GObject from 'gobject';
 import * as Meta from 'meta';
-import { App } from 'shell';
+
+import { App, WindowTracker } from 'shell';
 import {
     MetaWindowActorWithMsProperties,
     MetaWindowWithMsProperties
@@ -16,7 +17,6 @@ import { throttle } from 'src/utils';
 import { assert, assertNotNull } from 'src/utils/assert';
 import { Async } from 'src/utils/async';
 /** Extension imports */
-import { Allocate, SetAllocation } from 'src/utils/compatibility';
 import { registerGObjectClass } from 'src/utils/gjs';
 import { centerInBox } from 'src/utils/layout';
 import { set_style_class } from 'src/utils/styling_utils';
@@ -28,6 +28,8 @@ import { MsWorkspace } from './msWorkspace';
 import { PrimaryBorderEffect } from './tilingLayouts/baseResizeableTiling';
 
 const isWayland = GLib.getenv('XDG_SESSION_TYPE').toLowerCase() === 'wayland';
+
+const PLACEHOLDER_ICON_SIZE = 248;
 
 export function buildMetaWindowIdentifier(metaWindow: Meta.Window) {
     return `${metaWindow.get_wm_class_instance()}-${metaWindow.get_pid()}-${metaWindow.get_stable_sequence()}`;
@@ -56,6 +58,7 @@ export interface MsWindowState {
     y: number;
     width: number;
     height: number;
+    createdAt: EpochTimeStamp;
 }
 
 export interface MsWindowConstructProps {
@@ -64,6 +67,7 @@ export interface MsWindowConstructProps {
     initialAllocation?: Rectangular;
     msWorkspace: MsWorkspace;
     lifecycleState: MsWindowLifecycleState;
+    createdAt: Date;
 }
 
 type MsWindowLifecycleState =
@@ -135,7 +139,7 @@ function isWindowContentInteresting(metaWindow: MetaWindowWithMsProperties) {
         return true;
     }
 
-    return SOURCE_CONTINUE;
+    return false;
 }
 
 @registerGObjectClass
@@ -160,8 +164,10 @@ export class MsWindow extends Clutter.Actor {
 
     lifecycleState: MsWindowLifecycleState;
 
-    public app: App;
+    app: App;
+    appSignalId: number | undefined = undefined;
     _persistent: boolean | undefined;
+    createdAt: Date;
     windowClone: Clutter.Clone;
     placeholder: AppPlaceholder;
     destroyId: number;
@@ -179,6 +185,7 @@ export class MsWindow extends Clutter.Actor {
         initialAllocation,
         msWorkspace,
         lifecycleState,
+        createdAt,
     }: MsWindowConstructProps) {
         super({
             reactive: true,
@@ -190,6 +197,8 @@ export class MsWindow extends Clutter.Actor {
 
         this.lifecycleState = lifecycleState;
         this.app = app;
+        this.createdAt = createdAt;
+        this.trackAppChanges();
         this._persistent = persistent;
         this.msWorkspace = msWorkspace;
         this.updateMetaWindowPositionAndSizeThrottled = throttle(
@@ -198,7 +207,10 @@ export class MsWindow extends Clutter.Actor {
         );
 
         this.windowClone = new Clutter.Clone();
-        this.placeholder = new AppPlaceholder(this.app);
+        this.placeholder = new AppPlaceholder(
+            this.app.create_icon_texture(PLACEHOLDER_ICON_SIZE),
+            this.app.get_name()
+        );
         this.placeholder.connect('activated', (_) => {
             this.emit('request-new-meta-window');
         });
@@ -215,7 +227,6 @@ export class MsWindow extends Clutter.Actor {
             clone: this.windowClone,
         });
         this.add_child(this.msContent);
-
         this.setMsWorkspace(msWorkspace);
     }
 
@@ -261,6 +272,7 @@ export class MsWindow extends Clutter.Actor {
             y: this.y,
             width: this.width,
             height: this.height,
+            createdAt: this.createdAt.valueOf(),
         };
     }
 
@@ -312,6 +324,61 @@ export class MsWindow extends Clutter.Actor {
         Me.stateManager.stateChanged();
     }
 
+    private trackAppChanges() {
+        assert(
+            this.appSignalId === undefined,
+            'Expected the signalId to be undefined'
+        );
+        this.appSignalId = this.app.connect('windows-changed', () => {
+            const lifecycleState = this.lifecycleState;
+            if (lifecycleState.type === 'window') {
+                const metaWindowList = this.app.get_windows();
+                if (
+                    lifecycleState.metaWindow &&
+                    !metaWindowList.includes(lifecycleState.metaWindow)
+                ) {
+                    // We have to wait next cycle to get the proper app
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                        // Guard to ensure the lifecycle state has not changed before the callback was called
+                        if (
+                            this.lifecycleState == lifecycleState &&
+                            lifecycleState.metaWindow
+                        ) {
+                            const app =
+                                WindowTracker.get_default().get_window_app(
+                                    lifecycleState.metaWindow
+                                );
+                            if (app !== null) {
+                                this.app.disconnect(
+                                    assertNotNull(this.appSignalId)
+                                );
+                                this.appSignalId = undefined;
+                                this.app = app;
+                                this.onAppChanged();
+                            }
+                        }
+                        return GLib.SOURCE_REMOVE;
+                    });
+                }
+            }
+        });
+    }
+
+    private onAppChanged() {
+        const state = this.lifecycleState;
+        // App should change only if there is an window that change it's app
+        assert(
+            state.type == 'window',
+            "Expected the MsWindow to be in the 'window' state"
+        );
+        this.trackAppChanges();
+        state.matchingInfo.appId = this.app.id;
+        this.placeholder.setIcon(
+            this.app.create_icon_texture(PLACEHOLDER_ICON_SIZE)
+        );
+        this.placeholder.setTitle(this.app.get_name());
+    }
+
     delayGetMetaWindowActor(
         metaWindow: MetaWindowWithMsProperties,
         delayedCount: number,
@@ -333,6 +400,7 @@ export class MsWindow extends Clutter.Actor {
                         reject
                     );
                 }
+                return GLib.SOURCE_REMOVE;
             });
         } else {
             reject();
@@ -387,22 +455,19 @@ export class MsWindow extends Clutter.Actor {
         });
     }
 
-    override vfunc_allocate(
-        box: Clutter.ActorBox,
-        flags?: Clutter.AllocationFlags
-    ) {
+    override vfunc_allocate(box: Clutter.ActorBox) {
         box.x1 = Math.round(box.x1);
         box.y1 = Math.round(box.y1);
         box.x2 = Math.round(box.x2);
         box.y2 = Math.round(box.y2);
-        SetAllocation(this, box, flags);
+        this.set_allocation(box);
         const contentBox = Clutter.ActorBox.new(
             0,
             0,
             box.get_width(),
             box.get_height()
         );
-        Allocate(this.msContent, contentBox, flags);
+        this.msContent.allocate(contentBox);
         const workArea = Main.layoutManager.getWorkAreaForMonitor(
             this.msWorkspace.monitor.index
         );
@@ -431,7 +496,7 @@ export class MsWindow extends Clutter.Actor {
                     const y2 = y1 + dialogFrame.height;
 
                     const dialogBox = Clutter.ActorBox.new(x1, y1, x2, y2);
-                    Allocate(dialog.clone, dialogBox, flags);
+                    dialog.clone.allocate(dialogBox);
                 });
         }
     }
@@ -485,7 +550,6 @@ export class MsWindow extends Clutter.Actor {
 
         if (
             !windowActor ||
-            !this.mapped ||
             this.width === 0 ||
             this.height === 0 ||
             this.followMetaWindow ||
@@ -501,6 +565,10 @@ export class MsWindow extends Clutter.Actor {
             // Since the dialog in gnome-shell is purely a clutter dialog we only need to position the window actor,
             // not the meta window itself. In fact, attempting to move the meta window doesn't seem to have any effect.
             // This code needs to be synced with the corresponding code in the MsContent.allocate function.
+            if (!this.msContent.has_allocation()) {
+                // If we don't have an allocation yet, we cannot position the window actor.
+                return;
+            }
             const contentBox = this.msContent.allocation;
             const centeredBox = centerInBox(
                 contentBox,
@@ -510,6 +578,7 @@ export class MsWindow extends Clutter.Actor {
             const workArea = Main.layoutManager.getWorkAreaForMonitor(
                 this.msWorkspace.monitor.index
             );
+
             windowActor.x = workArea.x + this.x + centeredBox.x1;
             windowActor.y = workArea.y + this.y + centeredBox.y1;
             return;
@@ -548,7 +617,6 @@ export class MsWindow extends Clutter.Actor {
         // check if the window need a changes only if we don't need to already maximize
         if (!shouldBeMaximizedHorizontally || !shouldBeMaximizedVertically) {
             const currentFrameRect = metaWindow.get_frame_rect();
-            const contentBox = this.msContent.allocation;
 
             if (metaWindow.allows_resize()) {
                 moveTo = this.getRelativeMetaWindowPosition(metaWindow);
@@ -557,6 +625,12 @@ export class MsWindow extends Clutter.Actor {
                     height: this.height,
                 };
             } else {
+                if (!this.msContent.has_allocation()) {
+                    // If we don't have an allocation yet, we cannot position the window actor.
+                    return;
+                }
+                const contentBox = this.msContent.allocation;
+
                 const relativePosition =
                     this.getRelativeMetaWindowPosition(metaWindow);
 
@@ -642,7 +716,7 @@ export class MsWindow extends Clutter.Actor {
             moveTo !== undefined &&
             resizeTo !== undefined
         ) {
-            // Secure the futur metaWindow Position to ensure it's not outside the current monitor
+            // Secure the future metaWindow position to ensure it's not outside the current monitor
             if (!this.dragged) {
                 moveTo.x = Math.max(
                     Math.min(
@@ -663,7 +737,7 @@ export class MsWindow extends Clutter.Actor {
                     this.msWorkspace.monitor.y
                 );
             }
-            //Set the size accordingly
+            // Set the size accordingly
             if (isWayland) {
                 const moveTo2 = moveTo;
                 const resizeTo2 = resizeTo;
@@ -1198,12 +1272,12 @@ export class MsWindow extends Clutter.Actor {
             }
             this.placeholder.reset();
         };
-
         this.placeholder.ease({
             opacity: 0,
             duration: 250,
             mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-            onComplete,
+            // We use onStopped instead of onComplete because we want to remove the placeholder even if the transition has been interrupted
+            onStopped: onComplete,
         });
     }
 
@@ -1245,6 +1319,8 @@ export class MsWindow extends Clutter.Actor {
 
     _onDestroy() {
         if (this.destroyId) this.disconnect(this.destroyId);
+        if (this.appSignalId) this.app.disconnect(this.appSignalId);
+        if (this.placeholder.get_parent() === null) this.placeholder.destroy();
         this.unregisterOnMetaWindowSignals();
         this.lifecycleState = { type: 'destroyed' };
     }
@@ -1273,11 +1349,8 @@ export class MsWindowContent extends St.Widget {
         this.add_child(this.placeholder);
     }
 
-    override vfunc_allocate(
-        box: Clutter.ActorBox,
-        flags?: Clutter.AllocationFlags
-    ) {
-        SetAllocation(this, box, flags);
+    override vfunc_allocate(box: Clutter.ActorBox) {
+        this.set_allocation(box);
         const themeNode = this.get_theme_node();
         box = themeNode.get_content_box(box);
         const parent = this.get_parent();
@@ -1309,7 +1382,7 @@ export class MsWindowContent extends St.Widget {
             }
             const cloneBox = Clutter.ActorBox.new(x1, y1, x2, y2);
 
-            Allocate(this.clone, cloneBox, flags);
+            this.clone.allocate(cloneBox);
         } else {
             // Before the first frame of the window is drawn, the window likely doesn't have the correct size.
             // But we may still want to display things there. For example if a "The application is not responding" dialog is shown.
@@ -1320,11 +1393,11 @@ export class MsWindowContent extends St.Widget {
                 number,
                 number
             ];
-            Allocate(this.clone, centerInBox(box, w, h), flags);
+            this.clone.allocate(centerInBox(box, w, h));
         }
 
         if (this.placeholder.get_parent() === this) {
-            Allocate(this.placeholder, box, flags);
+            this.placeholder.allocate(box);
         }
     }
 }

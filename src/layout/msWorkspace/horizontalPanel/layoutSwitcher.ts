@@ -7,7 +7,7 @@ import { MatPanelButton } from 'src/layout/verticalPanel/panelButton';
 import {
     LayoutState,
     LayoutType,
-    TilingLayoutByKey
+    TilingLayoutByKey,
 } from 'src/manager/layoutManager';
 import { assert, assertNotNull } from 'src/utils/assert';
 import { registerGObjectClass } from 'src/utils/gjs';
@@ -84,7 +84,7 @@ export class LayoutSwitcher extends St.BoxLayout {
     }
 
     updateLayoutWidget() {
-        this.layoutQuickWidgetBin.remove_all_children();
+        this.layoutQuickWidgetBin.set_child(null);
 
         if (!this.msWorkspace.layout) {
             return;
@@ -172,7 +172,7 @@ export class LayoutSwitcher extends St.BoxLayout {
 
     vfunc_allocate(...args: [Clutter.ActorBox]) {
         const box = args[0];
-        const height = box.get_height() / 4;
+        const height = Me.msThemeManager.getPanelSizeNotScaled() / 2;
 
         if (this.tilingIcon && this.tilingIcon.get_icon_size() != height) {
             GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {

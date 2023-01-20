@@ -10,15 +10,10 @@ import {
     VerticalPanelPositionEnum,
 } from 'src/manager/msThemeManager';
 import { assert, assertNotNull } from 'src/utils/assert';
-import {
-    Allocate,
-    AllocatePreferredSize,
-    SetAllocation,
-} from 'src/utils/compatibility';
 import { registerGObjectClass } from 'src/utils/gjs';
 import { reparentActor } from 'src/utils/index';
 import { SignalHandle } from 'src/utils/signal';
-import { TranslationAnimator } from 'src/widget/translationAnimator';
+import { TranslationHelper } from 'src/utils/transition';
 import * as St from 'st';
 import { layout, main as Main } from 'ui';
 import { MsWorkspaceActor } from './msWorkspace/msWorkspace';
@@ -484,20 +479,16 @@ export class MonitorContainer extends St.Widget {
         });
     }
 
-    allocateHorizontalPanelSpacer(
-        box: Clutter.ActorBox,
-        flags?: Clutter.AllocationFlags
-    ) {
-        AllocatePreferredSize(this.horizontalPanelSpacer, flags);
-    }
-
-    vfunc_allocate(box: Clutter.ActorBox, flags?: Clutter.AllocationFlags) {
-        SetAllocation(this, box, flags);
+    vfunc_allocate(box: Clutter.ActorBox) {
+        this.set_allocation(box);
         const themeNode = this.get_theme_node();
         box = themeNode.get_content_box(box);
         this.get_children().forEach((actor) => {
             if (actor === this.horizontalPanelSpacer) {
-                return this.allocateHorizontalPanelSpacer(box, flags);
+                return this.horizontalPanelSpacer.allocate_preferred_size(
+                    this.horizontalPanelSpacer.x,
+                    this.horizontalPanelSpacer.y
+                );
             }
             if (actor === this.msWorkspaceActor) {
                 const msWorkspaceActorBox = new Clutter.ActorBox();
@@ -505,13 +496,9 @@ export class MonitorContainer extends St.Widget {
                 msWorkspaceActorBox.x2 = box.x2;
                 msWorkspaceActorBox.y1 = box.y1;
                 msWorkspaceActorBox.y2 = box.y2;
-                return Allocate(
-                    this.msWorkspaceActor,
-                    msWorkspaceActorBox,
-                    flags
-                );
+                return this.msWorkspaceActor.allocate(msWorkspaceActorBox);
             }
-            AllocatePreferredSize(actor, flags);
+            actor.allocate_preferred_size(actor.x, actor.y);
         });
     }
 }
@@ -522,7 +509,6 @@ export class PrimaryMonitorContainer extends MonitorContainer {
         GTypeName: 'PrimaryMonitorContainer',
     };
     panel: MsPanel;
-    translationAnimator: TranslationAnimator;
     verticalPanelSpacer: St.Widget<
         Clutter.LayoutManager,
         Clutter.ContentPrototype,
@@ -533,6 +519,10 @@ export class PrimaryMonitorContainer extends MonitorContainer {
         x_align: Clutter.ActorAlign.FILL,
         y_align: Clutter.ActorAlign.FILL,
     });
+    translationHelper: TranslationHelper = new TranslationHelper(
+        this.workspaceContainer,
+        true
+    );
     constructor(
         monitor: Monitor,
         bgGroup: Meta.BackgroundGroup,
@@ -548,16 +538,19 @@ export class PrimaryMonitorContainer extends MonitorContainer {
         this.add_child(this.workspaceContainer);
         this.add_child(this.panel);
 
-        this.translationAnimator = new TranslationAnimator(true);
-        this.translationAnimator.connect('transition-completed', () => {
-            assert(
-                this.msWorkspaceActor !== undefined,
-                'expected a workspace actor to exist'
-            );
-            reparentActor(this.msWorkspaceActor, this.workspaceContainer);
-            this.workspaceContainer.remove_child(this.translationAnimator);
-            this.msWorkspaceActor.updateUI();
-        });
+        this.translationHelper.connect(
+            'transition-completed',
+            (_, actorsLeftList: Clutter.Actor[]) => {
+                assert(
+                    this.msWorkspaceActor !== undefined,
+                    'expected a workspace actor to exist'
+                );
+                for (const actor of actorsLeftList) {
+                    this.workspaceContainer.remove_child(actor);
+                }
+                this.msWorkspaceActor.updateUI();
+            }
+        );
         const verticalPanelPositionSignal = Me.msThemeManager.connect(
             'vertical-panel-position-changed',
             () => {
@@ -580,13 +573,6 @@ export class PrimaryMonitorContainer extends MonitorContainer {
     }
 
     setTranslation(prevActor: Clutter.Actor, nextActor: Clutter.Actor) {
-        if (!this.translationAnimator.get_parent()) {
-            this.translationAnimator.width = this.width;
-            this.translationAnimator.height = assertNotNull(
-                Main.layoutManager.primaryMonitor
-            ).height;
-            this.workspaceContainer.add_child(this.translationAnimator);
-        }
         const indexOfPrevActor =
             Me.msWorkspaceManager.primaryMsWorkspaces.findIndex(
                 (msWorkspace) => {
@@ -600,9 +586,11 @@ export class PrimaryMonitorContainer extends MonitorContainer {
                 }
             );
         prevActor.height = nextActor.height = this.height;
-        this.translationAnimator.setTranslation(
-            [prevActor],
+        this.translationHelper.setTranslation(
             [nextActor],
+            Me.msWorkspaceManager.primaryMsWorkspaces.map(
+                (msWorkspace) => msWorkspace.msWorkspaceActor
+            ),
             indexOfNextActor > indexOfPrevActor ? 1 : -1
         );
     }
@@ -612,13 +600,10 @@ export class PrimaryMonitorContainer extends MonitorContainer {
         let prevActor;
         if (this.msWorkspaceActor) {
             prevActor = this.msWorkspaceActor;
-            if (this.msWorkspaceActor.get_parent() === this.workspaceContainer)
-                this.workspaceContainer.remove_child(this.msWorkspaceActor);
+        } else {
+            reparentActor(actor, this.workspaceContainer);
         }
         this.msWorkspaceActor = actor;
-        if (!this.msWorkspaceActor.get_parent()) {
-            reparentActor(this.msWorkspaceActor, this.workspaceContainer);
-        }
         assertNotNull(this.msWorkspaceActor.msWorkspace).refreshFocus(true);
         if (prevActor) {
             this.setTranslation(prevActor, this.msWorkspaceActor);
@@ -642,8 +627,8 @@ export class PrimaryMonitorContainer extends MonitorContainer {
         }
     }
 
-    vfunc_allocate(box: Clutter.ActorBox, flags?: Clutter.AllocationFlags) {
-        SetAllocation(this, box, flags);
+    vfunc_allocate(box: Clutter.ActorBox) {
+        this.set_allocation(box);
         const themeNode = this.get_theme_node();
         box = themeNode.get_content_box(box);
         const panelBox = new Clutter.ActorBox();
@@ -678,13 +663,19 @@ export class PrimaryMonitorContainer extends MonitorContainer {
 
         for (const child of this.get_children()) {
             if (child === this.panel) {
-                Allocate(child, panelBox, flags);
+                child.allocate(panelBox);
             } else if (child === this.horizontalPanelSpacer) {
-                this.allocateHorizontalPanelSpacer(box, flags);
+                this.horizontalPanelSpacer.allocate_preferred_size(
+                    this.horizontalPanelSpacer.x,
+                    this.horizontalPanelSpacer.y
+                );
             } else if (child === this.verticalPanelSpacer) {
-                AllocatePreferredSize(this.verticalPanelSpacer, flags);
+                this.verticalPanelSpacer.allocate_preferred_size(
+                    this.verticalPanelSpacer.x,
+                    this.verticalPanelSpacer.y
+                );
             } else {
-                Allocate(child, msWorkspaceActorBox, flags);
+                child.allocate(msWorkspaceActorBox);
             }
         }
     }

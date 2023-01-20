@@ -141,6 +141,28 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
     }
 }
 
+@mixin selected($theme) {
+    @if ($theme== 'light') {
+        background: rgba(0, 0, 0, 0.03);
+    }
+
+    @if ($theme== 'dark') {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    @if ($theme== 'primary') {
+        background: rgba(255, 255, 255, 0.03);
+
+        @at-root .light-primary#{&} {
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        @at-root .dark-primary#{&} {
+            background: rgba(255, 255, 255, 0.03);
+        }
+    }
+}
+
 @mixin foreground-high-emphasis($theme) {
     @include foreground($theme, 0.87);
 }
@@ -184,7 +206,7 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
         @include background('primary');
     }
 
-    width: 3px;
+    width: 2px;
 }
 
 .ripple-wave {
@@ -218,7 +240,7 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
         @include foreground-medium-emphasis($theme);
 
         &.active {
-            @include active($theme);
+            @include selected($theme);
 
             @if ($theme== 'light') {
                 color: $color-primary;
@@ -242,6 +264,11 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
 
     //box-shadow: $shadow;
 
+    transition-duration: 0.2s;
+
+    &.shadow {
+        box-shadow: $shadow;
+    }
     .panel-button {
         @include foreground-medium-emphasis($theme);
         text-align: center;
@@ -307,6 +334,15 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
             }
         }
     }
+    WorkspaceButton {
+        @include foreground-medium-emphasis($theme);
+
+        &.active {
+            @include selected($theme);
+
+            @include foreground-high-emphasis($theme);
+        }
+    }
 }
 
 #horizontalPanel {
@@ -358,7 +394,7 @@ $panel-opacity: 0.876; // Don't change this value since it's dynamically changed
     &.active {
         .task-bar-item-content,
         .task-bar-icon-container {
-            background: rgba(255, 255, 255, 0.03);
+            @include selected($theme);
 
             @if ($theme== 'light') {
                 color: $color-primary;
@@ -467,8 +503,10 @@ MatTooltip {
     text-align: center;
 }
 
-MatDivider {
-    @include hover($theme);
+#matDivider {
+    .inner-divider {
+        @include hover($theme);
+    }
 }
 
 .surface {

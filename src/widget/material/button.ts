@@ -2,8 +2,12 @@
 import * as Clutter from 'clutter';
 import * as GObject from 'gobject';
 import * as Meta from 'meta';
-import { Allocate, SetAllocation } from 'src/utils/compatibility';
 import { registerGObjectClass } from 'src/utils/gjs';
+import {
+    compareVersions,
+    gnomeVersionNumber,
+    parseVersion,
+} from 'src/utils/shellVersionMatch';
 import { RippleBackground } from 'src/widget/material/rippleBackground';
 import * as St from 'st';
 import { Widget } from 'st';
@@ -58,7 +62,7 @@ export class MatButton extends St.Widget {
             this.add_style_class_name('primary');
         }
 
-        const clickAction = new Clutter.ClickAction();
+        const clickAction = new PropagateClickAction();
         clickAction.connect('clicked', (action) => {
             this.clicked = true;
             const button = action.get_button();
@@ -73,6 +77,7 @@ export class MatButton extends St.Widget {
             return true;
         });
         clickAction.connect('long-press', this._onLongPress.bind(this));
+
         this.add_action(clickAction);
 
         this.connect('enter-event', () => {
@@ -84,7 +89,7 @@ export class MatButton extends St.Widget {
     }
 
     _onLongPress(
-        action: Clutter.ClickAction,
+        action: Clutter.ClickAction & { event: Clutter.Event | undefined },
         actor: Clutter.Actor,
         state: Clutter.LongPressState
     ) {
@@ -92,8 +97,7 @@ export class MatButton extends St.Widget {
         // a long-press canceled when the pointer movement
         // exceeds dnd-drag-threshold to manually start the drag
         if (state == Clutter.LongPressState.CANCEL) {
-            const event = Clutter.get_current_event();
-
+            const event = action.event;
             if (this._longPressLater) return true;
 
             // A click cancels a long-press before any click handler is
@@ -134,18 +138,15 @@ export class MatButton extends St.Widget {
         return this.child.vfunc_get_preferred_height(forWidth);
     }
 
-    override vfunc_allocate(
-        box: Clutter.ActorBox,
-        flags?: Clutter.AllocationFlags
-    ) {
-        SetAllocation(this, box, flags);
+    override vfunc_allocate(box: Clutter.ActorBox) {
+        this.set_allocation(box);
         const themeNode = this.get_theme_node();
         const contentBox = themeNode.get_content_box(box);
         if (this.child) {
-            Allocate(this.child, contentBox, flags);
+            this.child.allocate(contentBox);
         }
         if (this.rippleBackground.get_parent()) {
-            Allocate(this.rippleBackground, contentBox, flags);
+            this.rippleBackground.allocate(contentBox);
         }
     }
 
@@ -160,3 +161,47 @@ export class MatButton extends St.Widget {
         }
     }
 }
+
+const beforeGnome42 =
+    compareVersions(gnomeVersionNumber, parseVersion('42.0')) < 0;
+const PropagateClickAction = (() => {
+    if (beforeGnome42) {
+        @registerGObjectClass
+        class PropagateClickActionBefore42 extends Clutter.ClickAction {
+            static metaInfo: GObject.MetaInfo = {
+                GTypeName: 'PropagateClickAction',
+            };
+            event: Clutter.Event | undefined;
+
+            vfunc_clicked(actor: Clutter.Actor) {
+                this.event = Clutter.get_current_event();
+                return super.vfunc_clicked(actor);
+            }
+
+            vfunc_long_press(
+                actor: Clutter.Actor,
+                state: Clutter.LongPressState
+            ) {
+                this.event = Clutter.get_current_event();
+                return super.vfunc_long_press(actor, state);
+            }
+        }
+        return PropagateClickActionBefore42;
+    } else {
+        @registerGObjectClass
+        class PropagateClickActionAfter42 extends Clutter.ClickAction {
+            static metaInfo: GObject.MetaInfo = {
+                GTypeName: 'PropagateClickAction',
+            };
+            event: Clutter.Event | undefined;
+
+            vfunc_handle_event(event: Clutter.Event) {
+                this.event = event;
+                super.vfunc_handle_event(event);
+                //Propagate ( propagating has the side effect to not assign global Clutter.get_current_event so we stash it in lastEvent)
+                return false;
+            }
+        }
+        return PropagateClickActionAfter42;
+    }
+})();
